@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fintech Recebimentos</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- CSS Externo -->
+  <link href="styles.css" rel="stylesheet">
+</head>
+<body class="py-5">
+
+<div class="container">
+  <div class="card card-glass p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h4 class="text-success fw-bold">Painel de Recebimentos</h4>
+      <button class="btn btn-soft" data-bs-toggle="modal" data-bs-target="#addRecebimentoModal">
+        <i class="bi bi-plus-circle me-1"></i> Adicionar
+      </button>
+    </div>
+
+    <ul class="nav nav-pills mb-3" id="dashboard-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#resumo-tab">Resumo</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tabela-tab">Tabela</button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="resumo-tab">
+        <div class="row text-center" id="resumo-cards">
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tabela-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <input type="search" class="form-control w-50" id="searchInput" placeholder="Buscar por fonte ou valor...">
+          <select class="form-select w-25" id="filterSelect">
+            <option>Todos</option>
+            <option>Salário</option>
+            <option>Freelancer</option>
+            <option>Reembolso</option>
+          </select>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table align-middle table-hover">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Valor</th>
+                <th>Fonte</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="recebimentosBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addRecebimentoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title">Novo Recebimento</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formRecebimento">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Data</label>
+            <input type="date" class="form-control" id="dataInput" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Valor (€)</label>
+            <input type="number" class="form-control" id="valorInput" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Fonte</label>
+            <select class="form-select" id="fonteInput" required>
+              <option selected disabled>Escolher...</option>
+              <option>Salário</option>
+              <option>Freelancer</option>
+              <option>Reembolso</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" type="submit">Adicionar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  let recebimentos = [];
+
+  function atualizarTabela() {
+    const tbody = document.getElementById('recebimentosBody');
+    tbody.innerHTML = '';
+
+    const busca = document.getElementById('searchInput').value.toLowerCase();
+    const filtro = document.getElementById('filterSelect').value;
+
+    const filtrados = recebimentos.filter(r => {
+      const condBusca = r.valor.toString().includes(busca) || r.fonte.toLowerCase().includes(busca);
+      const condFiltro = filtro === "Todos" || r.fonte === filtro;
+      return condBusca && condFiltro;
+    });
+
+    filtrados.forEach((r, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.data}</td>
+        <td>€${r.valor}</td>
+        <td>${iconeFonte(r.fonte)} ${r.fonte}</td>
+        <td><button class="btn btn-sm btn-outline-danger" onclick="removerRecebimento(${index})"><i class="bi bi-trash"></i></button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    atualizarResumo();
+  }
+
+  function removerRecebimento(index) {
+    recebimentos.splice(index, 1);
+    atualizarTabela();
+  }
+
+  function iconeFonte(fonte) {
+    switch (fonte) {
+      case "Salário": return '<i class="bi bi-wallet2 text-success me-1"></i>';
+      case "Freelancer": return '<i class="bi bi-laptop text-primary me-1"></i>';
+      case "Reembolso": return '<i class="bi bi-cash-coin text-secondary me-1"></i>';
+      default: return '';
+    }
+  }
+
+  function atualizarResumo() {
+    const resumoContainer = document.getElementById('resumo-cards');
+    resumoContainer.innerHTML = '';
+
+    const totais = {
+      'Salário': 0,
+      'Freelancer': 0,
+      'Reembolso': 0
+    };
+
+    let totalGeral = 0;
+    recebimentos.forEach(r => {
+      totais[r.fonte] += parseFloat(r.valor);
+      totalGeral += parseFloat(r.valor);
+    });
+
+    for (let fonte in totais) {
+      const cor = fonte === "Salário" ? "success" : fonte === "Freelancer" ? "primary" : "secondary";
+      const percent = totalGeral ? (totais[fonte] / totalGeral * 100).toFixed(1) : 0;
+
+      resumoContainer.innerHTML += `
+        <div class="col-md-4 mb-3">
+          <div class="p-3 bg-white rounded-4 shadow-sm">
+            <h6 class="text-muted">${fonte}</h6>
+            <p class="fw-bold text-${cor}">€${totais[fonte]}</p>
+            <div class="progress">
+              <div class="progress-bar bg-${cor}" style="width: ${percent}%"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  document.getElementById('formRecebimento').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const data = document.getElementById('dataInput').value;
+    const valor = document.getElementById('valorInput').value;
+    const fonte = document.getElementById('fonteInput').value;
+
+    recebimentos.push({ data, valor, fonte });
+
+    this.reset();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addRecebimentoModal'));
+    modal.hide();
+
+    atualizarTabela();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', atualizarTabela);
+  document.getElementById('filterSelect').addEventListener('change', atualizarTabela);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
